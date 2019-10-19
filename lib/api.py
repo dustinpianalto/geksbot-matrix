@@ -12,7 +12,7 @@ MATRIX_MEDIA = "/_matrix/media/r0"
 
 
 @dataclass
-class HTTPConfig:
+class APIConfig:
     max_retry: int = 10
     max_wait_time: int = 3600
     backoff_factor: float = 0.1
@@ -20,20 +20,20 @@ class HTTPConfig:
     proxy: str = None
 
 
-class HTTP:
+class API:
     def __init__(
         self,
         *,
         base_url: str,
-        username: str,
+        user_id: str,
         password: str = None,
         token: str = None,
         device_id: str = None,
         device_name: str = None,
-        config: HTTPConfig = HTTPConfig(),
+        config: APIConfig = APIConfig(),
     ):
         self.base_url = base_url
-        self.username = username
+        self.user_id = user_id
         self.password = password
         self.token = token
         self.device_id = device_id
@@ -120,14 +120,16 @@ class HTTP:
         path = self.build_url("login")
 
         data = {}
-        if self.password:
+        if self.password and self.user_id:
             data = {
                 "type": "m.login.password",
-                "identifier": {"user": self.username, "type": "m.id.user"},
+                "identifier": {"user": self.user_id, "type": "m.id.user"},
                 "password": self.password,
             }
         elif self.token:
             data = {"type": "m.login.token", "token": self.token}
+        else:
+            raise RuntimeError("No valid login types configured")
         if self.device_id:
             data["device_id"] = self.device_id
         if self.device_name:
@@ -137,6 +139,8 @@ class HTTP:
         resp = await self._send("post", path, data=data, headers=headers)
         self.access_token = resp.get("access_token")
         self.device_id = resp.get("device_id")
+        if not self.user_id:
+            self.user_id = resp.get("user_id")
         return resp
 
     async def logout(self):
@@ -165,3 +169,34 @@ class HTTP:
             raise RuntimeWarning(f"{room_id} is not a valid room id or alias")
 
         return await self.send("PUT", path, data=content)
+
+    async def get_joined_rooms(self):
+        path = self.build_url("joined_rooms")
+        resp = await self.send("GET", path)
+        if resp.get("joined_rooms"):
+            return resp["joined_rooms"]
+        else:
+            return []
+
+    async def get_sync(
+        self,
+        query_filter: str = None,
+        since: str = None,
+        full_state: bool = False,
+        set_presence: str = "online",
+        timeout: int = 10000,
+    ):
+        query = {
+            "full_state": full_state,
+            "set_presence": set_presence,
+            "timeout": timeout,
+        }
+        if query_filter:
+            query["filter"] = query_filter
+        if since:
+            query["since"] = since
+
+        path = self.build_url("sync", query=query)
+        resp = await self.send("GET", path)
+
+        return resp
