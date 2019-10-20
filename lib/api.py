@@ -104,7 +104,7 @@ class API:
                 if isinstance(resp, bytes):
                     break
 
-                if resp.get("retry_after_ms"):
+                if isinstance(resp, dict) and resp.get("retry_after_ms"):
                     await asyncio.sleep(resp["retry_after_ms"] / 1000)
                 else:
                     break
