@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional, List
 
-from .room import Room
 from .content import ContentBase
 
 
@@ -22,6 +21,7 @@ class UnsignedData:
 
 @dataclass
 class RoomEvent(EventBase):
+    from .room import Room
     event_id: str
     origin_server_id: int
     unsigned: UnsignedData
