@@ -125,9 +125,59 @@ class MRoomPowerLevelsContent(ContentBase):
     state_default: int = 50
     users: Dict[str, int] = field(default_factory=dict)
     users_default: int = 0
-    notifications: Dict[str, int] = field(default={'room': 50})
+    notifications: Dict[str, int] = field(default_factory={'room': 50})
 
 
 @dataclass
 class MRoomRedactionContent(ContentBase):
     reason: str
+
+
+@dataclass
+class MRoomRelatedGroupsContent(ContentBase):
+    groups: List[str]
+
+
+@dataclass
+class MRoomTopicContent(ContentBase):
+    topic: str
+
+
+@dataclass
+class MRoomNameContent(ContentBase):
+    name: str
+
+
+@dataclass
+class MRoomHistoryVisibilityContent(ContentBase):
+    history_visibility: str
+
+
+@dataclass
+class MRoomBotOptionsContent(ContentBase):
+    options: Dict[str, dict]
+
+
+content_dispatcher = {
+    'm.text': MTextContent,
+    'm.audio': MAudioContent,
+    'm.emote': MEmoteContent,
+    'm.notice': MNoticeContent,
+    'm.image': MImageContent,
+    'm.file': MFileContent,
+    'm.location': MLocationContent,
+    'm.video': MVideoContent,
+    'm.presence': PresenceContent,
+    'm.room.aliases': MRoomAliasesContent,
+    'm.room.canonical_alias': MRoomCanonicalAliasContent,
+    'm.room.create': MRoomCreateContent,
+    'm.room.join_rules': MRoomJoinRulesContent,
+    'm.room.member': MRoomMemberContent,
+    'm.room.power_levels': MRoomPowerLevelsContent,
+    'm.room.redaction': MRoomRedactionContent,
+    'm.room.related_groups': MRoomRelatedGroupsContent,
+    'm.room.topic': MRoomTopicContent,
+    'm.room.name': MRoomNameContent,
+    'm.room.history_visibility': MRoomHistoryVisibilityContent,
+    'm.room.bot_options': MRoomBotOptionsContent
+}
