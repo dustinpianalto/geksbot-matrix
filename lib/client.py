@@ -1,7 +1,8 @@
 import asyncio
-from typing import Union, Optional
+from typing import Union, Optional, Dict
 
 from .api import API, APIConfig
+from .room import Room
 
 
 class Client:
@@ -15,7 +16,7 @@ class Client:
         self.username: Optional[str] = None
         self.password: Optional[str] = None
         self.token: Optional[str] = None
-        self.rooms: list = []
+        self.rooms: Dict[str, Room] = {}
         self.api: Optional[API] = None
         self.running: bool = False
         self.sync_timeout: int = 1000
@@ -24,6 +25,11 @@ class Client:
         self.sync_set_presence: str = "online"
         self.sync_filter: Optional[str] = None
         self.sync_delay: Optional[str] = None
+        self.sync_process_dispatcher = {
+            'presence': self.process_presence_events,
+            'rooms': self.process_room_events,
+            'groups': self.process_group_events
+        }
 
     async def run(self, user_id: str = None, password: str = None, token: str = None):
         if not password and not token:
@@ -56,14 +62,60 @@ class Client:
             if key == "next_batch":
                 self.sync_since = value
             else:
-                self.process_events(key, value)
+                if key in self.sync_process_dispatcher:
+                    self.sync_process_dispatcher[key](value)
 
-    def process_events(self, event_type: str, event: dict):
-        if event_type == "rooms":
-            joined_room_events = event["join"]
-            invited_rooms = event["invite"]
-            left_rooms = event["leave"]
-        # TODO process events
+    def process_presence_events(self, value: dict):
+        events = value['events']
+        for event_dict in events:
+            event = self.process_event(event_dict)
+            # TODO Do something with presence event...
+
+    def process_room_events(self, value: dict):
+        self.process_room_join_events(value['join'])
+        self.process_room_invite_events(value['invite'])
+        self.process_room_leave_events(value['leave'])
+
+    def process_room_join_events(self, rooms: dict):
+        for room_id, data in rooms.iteritems():
+            if room_id not in self.rooms:
+                self.rooms[room_id] = Room(room_id, self)
+            room = self.rooms[room_id]
+
+            # Process state events and update Room state
+            state_events = []
+            for event_dict in data['state']['events']:
+                event_dict['room'] = room
+                state_events.append(self.process_event(event_dict))
+            room.update_state(state_events)
+
+            # Process timeline
+            timeline_events = []
+            for event_dict in data['timeline']['events']:
+                event_dict['room'] = room
+                timeline_events.append(self.process_event(event_dict))
+
+    def process_room_invite_events(self, rooms: dict):
+        pass
+
+    def process_room_leave_events(self, rooms: dict):
+        pass
+
+    def process_group_events(self, value: dict):
+        pass
+
+    def process_event(self, event: dict):
+        from .events import EventBase, RoomEvent, StateEvent, RedactionEvent, MessageEvent
+        if event.get('redacted'):
+            return RedactionEvent.from_dict(self, event)
+        elif event.get('state_key'):
+            return StateEvent.from_dict(self, event)
+        elif event['type'] == 'm.presence':
+            return EventBase.from_dict(self, event)
+        elif event['type'] == 'm.room.message':
+            return MessageEvent.from_dict(self, event)
+        else:
+            return RoomEvent.from_dict(self, event)
 
     def process_timeline(self, room, timeline):
         # TODO process the timeline
