@@ -48,7 +48,7 @@ class API:
         path = f'{MATRIX_MEDIA if request_type == "MEDIA" else MATRIX_API}/{endpoint}'
         path = self.base_url + quote(path)
         if query:
-            path += f"?{urlencode(query)}"
+            path += f"?{urlencode(query).lower()}"
         return path
 
     def get_wait_time(self, num_timeouts: int) -> float:
@@ -197,6 +197,7 @@ class API:
             query["since"] = since
 
         path = self.build_url("sync", query=query)
+        print(path)
         resp = await self.send("GET", path)
 
         return resp
